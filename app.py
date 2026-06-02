@@ -25,7 +25,9 @@ st.markdown("""
 # --- GOOGLE SHEET VE FORM TANIMLAMALARI ---
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
-FORM_LINK = "https://docs.google.com/forms/d/1CVe1-byqOmkayE_fusLn6akdnneTYeqOLKkwaUIMtdQ/viewform"
+
+# Kanka getirdiğin sıfır hatalı form linkini buraya gömdük:
+FORM_LINK = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform"
 
 # Okunacak Sayfaların CSV Linkleri
 STOK_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=stok"
@@ -102,9 +104,8 @@ with sekme1:
 # 2. SEKME: ÜRÜN GİRİŞİ (GOOGLE FORM ENTEGRELİ)
 with sekme2:
     st.header("📦 Stoğa Yeni Mal Ekleme")
-    st.write("Kanka Google güvenlik duvarını aşmak için yeni malları direkt aşağıdaki resmi Google Form butonuna basarak ekliyoruz. Eklenen ürünler anında Excel'e ve aşağıdaki listeye yansır.")
+    st.write("Kanka yeni gelen malları direkt aşağıdaki mavi renkli butona basarak ekliyoruz. Eklenen ürünler anında Excel'e ve aşağıdaki listeye yansır.")
     
-    # Yeni ürün ekleme butonu artık doğrudan senin oluşturduğun forma gidiyor
     st.markdown(f'<h3><a href="{FORM_LINK}" target="_blank" style="color: #3b82f6; text-decoration: none;">➕ BURAYA TIKLAYARAK YENİ ÜRÜN EKLE</a></h3>', unsafe_allow_html=True)
     st.caption("*(Açılan formda ürün adı ve fiyatını yazıp gönder demeniz yeterlidir)*")
     
