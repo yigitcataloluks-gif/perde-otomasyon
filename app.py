@@ -26,8 +26,8 @@ st.markdown("""
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
 
-# Kanka getirdiğin sıfır hatalı form linkini buraya gömdük:
-FORM_LINK = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform"
+# Canlı doldurma linki (Gömme için hazırlandı)
+FORM_EMBED_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true"
 
 # Okunacak Sayfaların CSV Linkleri
 STOK_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=stok"
@@ -66,7 +66,7 @@ veresiye_df = veri_yukle(VERESIYE_CSV_URL, ["Müşteri Adı", "Toplam Borç", "K
 # --- SEKMELER ---
 sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Sipariş & Satış", "📦 Ürün Girişi", "👥 Cari & Veresiye", "📊 Arama & Rapor"])
 
-# 1. SEKME: SİPARİŞ & SATIŞ (PİLE HESAPLAMALI & WHATSAPP)
+# 1. SEKME: SİPARİŞ & SATIŞ
 with sekme1:
     st.header("Hızlı Satış Girişi")
     if stok_df.empty:
@@ -101,13 +101,13 @@ with sekme1:
             msg = f"🧵 *Perde Siparişi*\n\n👤 *Müşteri:* Kayıt\n📦 *Ürün:* {secilen_urun}\n📐 *Miktar:* {satilan_miktar} Mt\n💰 *Toplam:* {toplam_tutar} TL\n💳 *Ödenen:* {odenen_tutar} TL\n📉 *Borç:* {kalan_borc} TL\n📝 *Not:* {sip_notu}"
             st.markdown(f"[💬 WhatsApp'tan Gönder](https://wa.me/?text={urllib.parse.quote(msg)})")
 
-# 2. SEKME: ÜRÜN GİRİŞİ (GOOGLE FORM ENTEGRELİ)
+# 2. SEKME: ÜRÜN GİRİŞİ (DOĞRUDAN PANELİN İÇİNE GÖMÜLÜ)
 with sekme2:
-    st.header("📦 Stoğa Yeni Mal Ekleme")
-    st.write("Kanka yeni gelen malları direkt aşağıdaki mavi renkli butona basarak ekliyoruz. Eklenen ürünler anında Excel'e ve aşağıdaki listeye yansır.")
+    st.header("📦 Seri Ürün Giriş Paneli")
+    st.write("Kanka yeni gelen malları aşağıdaki ekrandan arka arkaya, sayfadan hiç ayrılmadan ekleyebilirsin. Formu doldurup Gönder dedikten sonra hemen yeni ürünü yazabilirsin.")
     
-    st.markdown(f'<h3><a href="{FORM_LINK}" target="_blank" style="color: #3b82f6; text-decoration: none;">➕ BURAYA TIKLAYARAK YENİ ÜRÜN EKLE</a></h3>', unsafe_allow_html=True)
-    st.caption("*(Açılan formda ürün adı ve fiyatını yazıp gönder demeniz yeterlidir)*")
+    # Formu sayfa içine canlı canlı gömüyoruz kanka:
+    st.components.v1.iframe(FORM_EMBED_URL, height=500, scrolling=True)
     
     st.write("---")
     st.subheader("📋 Mevcut Güncel Stok Listesi")
