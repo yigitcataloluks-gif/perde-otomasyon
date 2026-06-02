@@ -5,8 +5,41 @@ import requests
 from io import StringIO
 import urllib.parse
 
-# --- MOBİL UYUMLU SAYFA AYARLARI ---
+# --- GÖZ YORMAYAN SADE VE MOBİL UYUMLU AYARLAR ---
 st.set_page_config(page_title="Perde Takip Master PRO", page_icon="🧵", layout="centered")
+
+# Göz almayan, esnaf dostu sade arayüz tasarımı (Koyu/Soft Gri Tema)
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #1e1e24;
+        color: #f5f5f7;
+    }
+    h1, h2, h3, h4 {
+        color: #e4e4e7 !important;
+    }
+    .stButton>button {
+        background-color: #3b82f6 !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: none !important;
+        font-weight: bold !important;
+    }
+    .stButton>button:hover {
+        background-color: #2563eb !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        color: #a1a1aa !important;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #3b82f6 !important;
+        font-weight: bold !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #10b981 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # GOOGLE SHEET ANA LINKI
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
@@ -55,13 +88,13 @@ if not stok_df.empty and "Stok Miktarı" in stok_df.columns:
         kritik_stoklar = stok_df[pd.to_numeric(stok_df["Stok Miktarı"], errors='coerce') <= 10]
         if not kritik_stoklar.empty:
             for _, row in kritik_stoklar.iterrows():
-                st.warning(f"⚠️ **Kritik Stok Alarmı:** `{row['Ürün Adı']}` bitiyor! Kalan: {row['Stok Miktarı']} Metre/Adet")
+                st.sidebar.warning(f"⚠️ **Kritik Stok:** {row['Ürün Adı']} bitiyor! Kalan: {row['Stok Miktarı']}")
     except:
         pass
 
 # --- ARAYÜZ SEKMELERI ---
 st.title("🧵 Perde Otomasyon MASTER PRO")
-sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Sipariş & Satış", "📦 Ürün Girişi", "👥 Cari & Veresiye (Borç Kapat)", "📊 Arama & Gün Sonu"])
+sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Sipariş & Satış", "📦 Ürün Girişi", "👥 Cari & Veresiye", "📊 Arama & Gün Sonu"])
 
 # 1. SEKME: SİPARİŞ & SATIŞ
 with sekme1:
@@ -78,19 +111,43 @@ with sekme1:
             aktif_musteri = yeni_musteri_adi
         else:
             aktif_musteri = secilen_musteri
-            st.success(f"Seçili Kayıtlı Yer: {aktif_musteri}")
 
         st.write("---")
-        st.subheader("2. Ürün ve Sipariş Detayları")
+        st.subheader("2. Otomatik Pile & Ölçü Hesaplama Robotu")
+        
+        # Pile Hesaplama Girdileri
+        col_en, col_pile = st.columns(2)
+        with col_en:
+            cam_eni = st.number_input("Korniş / Cam Eni (Metre):", min_value=0.0, step=0.5, value=1.0)
+        with col_pile:
+            pile_turu = st.selectbox("Pile Oranı Seçin:", ["1'e 3 (Sık Pile)", "1'e 2.5 (Normal Pile)", "1'e 2 (Seyrek Pile)", "Pilesiz (Düz Dikim)"])
+        
+        # Çarpanı Belirleme
+        if pile_turu == "1'e 3 (Sık Pile)":
+            carpan = 3.0
+        elif pile_turu == "1'e 2.5 (Normal Pile)":
+            carpan = 2.5
+        elif pile_turu == "1'e 2 (Seyrek Pile)":
+            carpan = 2.0
+        else:
+            carpan = 1.0
+            
+        # Gidecek Net Kumaş Hesabı
+        gidecek_kumaş = cam_eni * carpan
+        st.info(f"📐 **Hesaplanan Gerekli Kumaş:**  `{gidecek_kumaş} Metre` (Paylar dahil)")
+        
+        st.write("---")
+        st.subheader("3. Ürün ve Ödeme")
         secilen_urun = st.selectbox("Ürün Seç:", stok_df["Ürün Adı"].tolist())
         urun_bilgisi = stok_df[stok_df["Ürün Adı"] == secilen_urun].iloc[0]
         
         st.caption(f"Mevcut Stok: {urun_bilgisi['Stok Miktarı']} | Satış Fiyatı (Birim): {urun_bilgisi['Birim Fiyat']} TL")
-        satilan_miktar = st.number_input("Miktar (Metre/Adet):", min_value=0.5, step=0.5, value=1.0)
         
-        # Sipariş Durumu ve Not Ekleme (Yeni!)
+        # Robotun hesapladığı miktar otomatik buraya aktarılıyor ama elle de değiştirilebilir
+        satilan_miktar = st.number_input("Satılacak Miktar (Metre/Adet):", min_value=0.5, step=0.5, value=float(gidecek_kumaş))
+        
         sip_durum = st.selectbox("Sipariş / Terzi Durumu:", ["Teslim Edildi", "Terzide / Dikiliyor", "Montaj Bekliyor", "Hazırlanıyor"])
-        sip_notu = st.text_input("Sipariş Notu (Örn: Boy 2.60, pileli olacak):")
+        sip_notu = st.text_input("Sipariş Notu:", value=f"{pile_turu} dikilecek.")
         
         toplam_tutar = satilan_miktar * float(urun_bilgisi['Birim Fiyat'])
         st.metric(label="Toplam Sipariş Tutarı", value=f"{toplam_tutar} TL")
@@ -109,7 +166,7 @@ with sekme1:
             else:
                 st.success("Satış onaylandı! Bilgiler Excel'e işlendi kanka.")
                 
-                # WHATSAPP FİŞ OLUŞTURMA (Geliştirildi!)
+                # WHATSAPP FİŞ OLUŞTURMA
                 msg = f"🧵 *Perde Sipariş Özeti*\n\n👤 *Müşteri:* {aktif_musteri}\n📦 *Ürün:* {secilen_urun}\n📐 *Miktar:* {satilan_miktar} Metre\n💰 *Toplam:* {toplam_tutar} TL\n💳 *Ödenen:* {odenen_tutar} TL\n📉 *Kalan Borç:* {kalan_borc} TL\n🛠️ *Durum:* {sip_durum}\n📝 *Not:* {sip_notu}\n\n*Hayırlı günler dileriz!*"
                 encoded_msg = urllib.parse.quote(msg)
                 st.markdown(f"[💬 Müşteriye WhatsApp'tan Fiş Gönder](https://wa.me/?text={encoded_msg})")
@@ -119,7 +176,6 @@ with sekme2:
     st.header("Dükkana Yeni Mal Ekleme")
     yeni_urun = st.text_input("Malın / Perdenin Adı:")
     yeni_stok = st.number_input("Gelen Miktar:", min_value=0.0, step=5.0)
-    alis_fiyati = st.number_input("Toptancı Alış Fiyatı (Metre/Adet) - [İsteğe Bağlı]:", min_value=0.0, step=10.0)
     yeni_birim_fiyat = st.number_input("Dükkan Satış Fiyatı (Birim Fiyat):", min_value=0.0, step=10.0)
     
     if st.button("➕ Stoğa Ekle", use_container_width=True):
@@ -129,23 +185,9 @@ with sekme2:
     st.subheader("📋 Güncel Stok Listesi")
     st.dataframe(stok_df, use_container_width=True)
 
-# 3. SEKME: CARİ & VERESİYE (BORÇ KAPATMA)
+# 3. SEKME: CARİ & VERESİYE
 with sekme3:
-    st.header("👥 Müşteri Hesapları & Veresiye Tahsilat")
-    
-    # Yeni: Borç Ödeme / Tahsilat Sistemi
-    st.subheader("💰 Borç Kapatma / Ödeme Al")
-    if veresiye_df.empty:
-        st.info("Şu an borcu olan dükkan bulunmuyor kanka.")
-    else:
-        borclu_musteriler = veresiye_df["Müşteri Adı"].dropna().tolist()
-        tahsilat_musteri = st.selectbox("Ödeme Yapan Dükkanı Seç:", borclu_musteriler)
-        gelen_para = st.number_input("Getirdiği Ödeme Tutarı (TL):", min_value=0.0, step=100.0)
-        
-        if st.button("💵 Ödemeyi Onayla ve Borçtan Düş", use_container_width=True):
-            st.success(f"{tahsilat_musteri} dükkanından {gelen_para} TL tahsilat alındı. Excel'e işlendi kanka!")
-
-    st.write("---")
+    st.header("👥 Müşteri Hesapları & Veresiye")
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Kayıtlı Yerler")
@@ -157,8 +199,6 @@ with sekme3:
 # 4. SEKME: ARAMA & GÜN SONU
 with sekme4:
     st.header("🔍 Müşteri Geçmişi Sorgulama")
-    
-    # Yeni: Detaylı Müşteri Geçmişi Filtreleme
     arama_musteri = st.text_input("Geçmişini görmek istediğin dükkan/müşteri adını yaz:")
     if arama_musteri:
         filtreli_df = satis_df[satis_df["Müşteri / Dükkan"].str.contains(arama_musteri, case=False, na=False)]
