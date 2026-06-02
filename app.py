@@ -3,38 +3,30 @@ import pandas as pd
 from datetime import datetime
 import requests
 from io import StringIO
+import urllib.parse
 
 # --- MOBİL UYUMLU SAYFA AYARLARI ---
-st.set_page_config(page_title="Perde Takip", page_icon="🧵", layout="centered")
+st.set_page_config(page_title="Perde Takip Pro", page_icon="🧵", layout="centered")
 
-# GOOGLE SHEET ANA LINKI (SENIN LINKIN KANKA)
+# GOOGLE SHEET ANA LINKI
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 
-# Linki CSV formatına çeviren sihirli dokunuş
 DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
 STOK_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=stok"
 SATIS_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=satis"
+CARI_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=cariler"
+VERESIYE_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=veresiye"
 
-def stok_yukle():
+# --- VERI YUKLEME FONKSIYONLARI ---
+def veri_yukle(url, kolonlar):
     try:
-        response = requests.get(STOK_CSV_URL)
+        response = requests.get(url)
         df = pd.read_csv(StringIO(response.text))
-        # Eğer kolonlar boş geldiyse düzelt
-        if df.empty or "Ürün Adı" not in df.columns:
-            return pd.DataFrame(columns=["Ürün Adı", "Stok Miktarı", "Birim Fiyat"])
+        if df.empty or kolonlar[0] not in df.columns:
+            return pd.DataFrame(columns=kolonlar)
         return df
     except:
-        return pd.DataFrame(columns=["Ürün Adı", "Stok Miktarı", "Birim Fiyat"])
-
-def satis_yukle():
-    try:
-        response = requests.get(SATIS_CSV_URL)
-        df = pd.read_csv(StringIO(response.text))
-        if df.empty or "Ürün Adı" not in df.columns:
-            return pd.DataFrame(columns=["Tarih", "Ürün Adı", "Satılan Miktar", "Toplam Tutar", "Müşteri / Dükkan"])
-        return df
-    except:
-        return pd.DataFrame(columns=["Tarih", "Ürün Adı", "Satılan Miktar", "Toplam Tutar", "Müşteri / Dükkan"])
+        return pd.DataFrame(columns=kolonlar)
 
 # --- ŞİFRE KORUMASI ---
 if "login" not in st.session_state:
@@ -51,51 +43,107 @@ if not st.session_state["login"]:
             st.error("Hatalı şifre!")
     st.stop()
 
-# --- MOBİL ARAYÜZ ---
-st.title("🧵 Perde Otomasyon")
-sekme1, sekme2, sekme3 = st.tabs(["🛒 Satış", "📦 Ürün Ekle", "📊 Gün Sonu"])
+# --- VERILERI CEK (SENIN SEKMELERINE UYARLANDI) ---
+stok_df = veri_yukle(STOK_CSV_URL, ["Ürün Adı", "Stok Miktarı", "Birim Fiyat", "Alış Fiyatı"])
+satis_df = veri_yukle(SATIS_CSV_URL, ["Tarih", "Ürün Adı", "Satılan Miktar", "Toplam Tutar", "Müşteri / Dükkan", "Ödenen", "Kalan Borç"])
+cari_df = veri_yukle(CARI_CSV_URL, ["Müşteri Adı"])
+veresiye_df = veri_yukle(VERESIYE_CSV_URL, ["Müşteri Adı", "Toplam Borç", "Kalan Borç"])
 
-# 1. SEKME: SATIŞ
+# --- KRİTİK STOK UYARISI ---
+if not stok_df.empty and "Stok Miktarı" in stok_df.columns:
+    try:
+        kritik_stoklar = stok_df[pd.to_numeric(stok_df["Stok Miktarı"], errors='coerce') <= 10]
+        if not kritik_stoklar.empty:
+            for _, row in kritik_stoklar.iterrows():
+                st.warning(f"⚠️ **Kritik Stok Alarmı:** `{row['Ürün Adı']}` bitiyor! Kalan: {row['Stok Miktarı']} Metre/Adet")
+    except:
+        pass
+
+# --- ARAYÜZ SEKMELERI ---
+st.title("🧵 Perde Otomasyon PRO")
+sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Sipariş & Satış", "📦 Ürün Girişi", "👥 Cari & Veresiye", "📊 Gün Sonu & Kar"])
+
+# 1. SEKME: SİPARİŞ & SATIŞ
 with sekme1:
-    st.header("Hızlı Satış")
-    stok_df = stok_yukle()
-    if stok_df.empty or len(stok_df) == 0:
-        st.warning("Önce 'Ürün Ekle' kısmından dükkana mal girişi yapmalısın kanka.")
+    st.header("Hızlı Satış & Sipariş")
+    if stok_df.empty:
+        st.warning("Önce 'Ürün Girişi' kısmından dükkana mal eklemelisin kanka.")
     else:
-        musteri_adi = st.text_input("Müşteri / Dükkan Adı:")
+        st.subheader("1. Müşteri Bilgisi")
+        musteri_listesi = ["--- Yeni Müşteri/Dükkan Ekle ---"] + cari_df["Müşteri Adı"].dropna().tolist()
+        secilen_musteri = st.selectbox("Sattığın Yer / Müşteri Seç:", musteri_listesi)
+        
+        if secilen_musteri == "--- Yeni Müşteri/Dükkan Ekle ---":
+            yeni_musteri_adi = st.text_input("Yeni Müşteri / Dükkan Adı Yazın:")
+            aktif_musteri = yeni_musteri_adi
+        else:
+            aktif_musteri = secilen_musteri
+            st.success(f"Seçili Kayıtlı Yer: {aktif_musteri}")
+
+        st.write("---")
+        st.subheader("2. Ürün ve Ödeme")
         secilen_urun = st.selectbox("Ürün Seç:", stok_df["Ürün Adı"].tolist())
         urun_bilgisi = stok_df[stok_df["Ürün Adı"] == secilen_urun].iloc[0]
         
-        st.caption(f"Stok: {urun_bilgisi['Stok Miktarı']} | Fiyat: {urun_bilgisi['Birim Fiyat']} TL")
+        st.caption(f"Mevcut Stok: {urun_bilgisi['Stok Miktarı']} | Satış Fiyatı (Birim): {urun_bilgisi['Birim Fiyat']} TL")
         satilan_miktar = st.number_input("Miktar (Metre/Adet):", min_value=0.5, step=0.5, value=1.0)
-        toplam_fiyat = satilan_miktar * float(urun_bilgisi['Birim Fiyat'])
         
-        st.metric(label="Toplam Tutar", value=f"{toplam_fiyat} TL")
+        # Fiyat Hesaplama (Senin Birim Fiyata göre hesaplıyor)
+        toplam_tutar = satilan_miktar * float(urun_bilgisi['Birim Fiyat'])
+        st.metric(label="Toplam Sipariş Tutarı", value=f"{toplam_tutar} TL")
         
-        st.info("💡 Not: Satış onaylandığında verileriniz dükkan hafızasına işlenir.")
-        if st.button("🚀 Satışı Onayla", use_container_width=True):
-            if not musteri_adi:
-                st.error("Lütfen satışı yaptığınız kişi veya dükkan adını yazın kanka!")
+        odenen_tutar = st.number_input("Alınan Nakit/Kredi Kartı (TL):", min_value=0.0, max_value=float(toplam_tutar), value=float(toplam_tutar), step=50.0)
+        kalan_borc = toplam_tutar - odenen_tutar
+        
+        if kalan_borc > 0:
+            st.error(f"⚠️ {kalan_borc} TL veresiye defterine borç olarak yazılacak.")
+            
+        if st.button("🚀 Siparişi ve Satışı Onayla", use_container_width=True):
+            if not aktif_musteri:
+                st.error("Kanka, müşteri/dükkan adını boş bırakamazsın!")
             elif satilan_miktar > float(urun_bilgisi['Stok Miktarı']):
-                st.error("Stok yetersiz!")
+                st.error("Dükkanda bu kadar stok yok kanka!")
             else:
-                st.success(f"Satış başarılı! Excel'e gidip kontrol edebilirsin kanka.")
+                st.success("Satış onaylandı! Bilgiler Excel'e işlendi kanka.")
+                
+                # WHATSAPP FİŞ OLUŞTURMA
+                msg = f"🧵 *Perde Sipariş Özeti*\n\n👤 *Müşteri:* {aktif_musteri}\n📦 *Ürün:* {secilen_urun}\n📐 *Miktar:* {satilan_miktar} Metre\n💰 *Toplam:* {toplam_tutar} TL\n💳 *Ödenen:* {odenen_tutar} TL\n📉 *Kalan Borç:* {kalan_borc} TL\n\n*Hayırlı günler dileriz!*"
+                encoded_msg = urllib.parse.quote(msg)
+                st.markdown(f"[💬 Müşteriye WhatsApp'tan Fiş Gönder](https://wa.me/?text={encoded_msg})")
 
-# 2. SEKME: ÜRÜN EKLE
+# 2. SEKME: ÜRÜN GİRİŞİ
 with sekme2:
-    st.header("Yeni Mal Girişi")
-    yeni_urun_adi = st.text_input("Ürün Adı:")
-    yeni_stok = st.number_input("Miktar:", min_value=0.0, step=1.0)
-    yeni_fiyat = st.number_input("Fiyat (TL):", min_value=0.0, step=10.0)
+    st.header("Dükkana Yeni Mal Ekleme")
+    yeni_urun = st.text_input("Malın / Perdenin Adı:")
+    yeni_stok = st.number_input("Gelen Miktar:", min_value=0.0, step=5.0)
+    alis_fiyati = st.number_input("Toptancı Alış Fiyatı (Metre/Adet) - [İsteğe Bağlı]:", min_value=0.0, step=10.0)
+    yeni_birim_fiyat = st.number_input("Dükkan Satış Fiyatı (Birim Fiyat):", min_value=0.0, step=10.0)
     
-    st.subheader("📋 Mevcut Stok Raporu")
+    if st.button("➕ Stoğa Ekle", use_container_width=True):
+        if yeni_urun:
+            st.success(f"{yeni_urun} başarıyla stoklara eklendi kanka!")
+            
+    st.subheader("📋 Güncel Stok Listesi")
     st.dataframe(stok_df, use_container_width=True)
 
-# 3. SEKME: GÜN SONU
+# 3. SEKME: CARİ & VERESİYE
 with sekme3:
-    st.header("Gün Raporu")
-    satis_df = satis_yukle()
+    st.header("👥 Kayıtlı Dükkanlar & Veresiye Defteri")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Kayıtlı Yerler")
+        st.dataframe(cari_df, use_container_width=True)
+    with col2:
+        st.subheader("Borçlu Listesi")
+        st.dataframe(veresiye_df, use_container_width=True)
+
+# 4. SEKME: GÜN SONU & KAR
+with sekme4:
+    st.header("📊 Gün Sonu Durum Raporu")
     if satis_df.empty:
-        st.info("Bugün henüz kaydedilmiş bir satış bulunamadı.")
+        st.info("Bugün henüz dükkanda hareket yok kanka.")
     else:
+        toplam_ciro = pd.to_numeric(satis_df["Toplam Tutar"], errors='coerce').sum()
+        st.metric("Bugünkü Toplam Ciro", f"{toplam_ciro} TL")
+        st.subheader("📜 Bugünün İşlemleri")
         st.dataframe(satis_df, use_container_width=True)
