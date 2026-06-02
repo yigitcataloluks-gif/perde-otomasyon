@@ -43,7 +43,7 @@ if not st.session_state["login"]:
             st.error("Hatalı şifre!")
     st.stop()
 
-# --- VERILERI CEK (SENIN SEKMELERINE UYARLANDI) ---
+# --- VERILERI CEK ---
 stok_df = veri_yukle(STOK_CSV_URL, ["Ürün Adı", "Stok Miktarı", "Birim Fiyat", "Alış Fiyatı"])
 satis_df = veri_yukle(SATIS_CSV_URL, ["Tarih", "Ürün Adı", "Satılan Miktar", "Toplam Tutar", "Müşteri / Dükkan", "Ödenen", "Kalan Borç"])
 cari_df = veri_yukle(CARI_CSV_URL, ["Müşteri Adı"])
@@ -88,7 +88,6 @@ with sekme1:
         st.caption(f"Mevcut Stok: {urun_bilgisi['Stok Miktarı']} | Satış Fiyatı (Birim): {urun_bilgisi['Birim Fiyat']} TL")
         satilan_miktar = st.number_input("Miktar (Metre/Adet):", min_value=0.5, step=0.5, value=1.0)
         
-        # Fiyat Hesaplama (Senin Birim Fiyata göre hesaplıyor)
         toplam_tutar = satilan_miktar * float(urun_bilgisi['Birim Fiyat'])
         st.metric(label="Toplam Sipariş Tutarı", value=f"{toplam_tutar} TL")
         
@@ -111,7 +110,7 @@ with sekme1:
                 encoded_msg = urllib.parse.quote(msg)
                 st.markdown(f"[💬 Müşteriye WhatsApp'tan Fiş Gönder](https://wa.me/?text={encoded_msg})")
 
-# 2. SEKME: ÜRÜN GİRİŞİ
+# 2. SEKME: ÜRÜN GİRİŞI
 with sekme2:
     st.header("Dükkana Yeni Mal Ekleme")
     yeni_urun = st.text_input("Malın / Perdenin Adı:")
