@@ -7,7 +7,7 @@ import gspread
 st.set_page_config(page_title="Perde Takip", page_icon="🧵", layout="centered")
 
 # GOOGLE SHEET BAĞLANTISI
-SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit?gid=2100858186#gid=2100858186"
+SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 
 try:
     gc = gspread.public_link(SHEET_LINK)
