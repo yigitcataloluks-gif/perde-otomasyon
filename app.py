@@ -62,30 +62,15 @@ if not st.session_state["login"]:
 
 # --- VERİLERİ ÇEK ---
 stok_df = veri_yukle(STOK_CSV_URL)
-satis_df = veri_yukle(SATIS_CSV_URL)
-veresiye_df = veri_yukle(VERESIYE_CSV_URL)
-form_urun_df = veri_yukle(FORM_YANIT_1_URL)
-form_satis_df = veri_yukle(FORM_SATIS_URL)
-
-# Veri kontrolü ve temizliği (Boşsa hata vermesin diye)
-if satis_df.empty and not form_satis_df.empty:
-    satis_df = form_satis_df
-if stok_df.empty and not form_urun_df.empty:
-    stok_df = form_urun_df
-
-# --- SEKMELER ---
-sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Sipariş & Satış Formu", "📦 Ürün Giriş Formu", "👥 Müşteri Carileri", "📊 Müşteri Arama & Geçmiş"])
-
 # 1. SEKME: SATIŞ FORMU (GÖMÜLÜ)
 with sekme1:
     st.header("🛒 Satış & Sipariş Kayıt Ekranı")
     st.write("Abicim, satışı ve siparişi kaydetmek için aşağıdaki formu doldurup 'Gönder' demen yeterlidir. Veriler anında hafızaya işlenir.")
     
-    # Kanka senin satış formunun linkini buraya gömüyoruz.
-    # E-tablona bağlı olan satış formunun doldurma linkini tırnak içine yaz:
+    # ⚠️ KANKA BURADAKİ TIRNAKLARIN İÇİNE FORM LİNKİNİ YAPIŞTIR:
     SATIS_FORM_URL = "BURAYA_SATIS_FORMUNUN_LINKINI_YAZ"
     
     if SATIS_FORM_URL == "BURAYA_SATIS_FORMUNUN_LINKINI_YAZ":
-        st.warning("Kanka kodun 73. satırındaki 'BURAYA_SATIS_FORMUNUN_LINKINI_YAZ' kısmına satış formunun linkini yapıştırmayı unutma!")
+        st.warning("Kanka satış formunun linkini yapıştırmayı unutma!")
     else:
-        st.components.v1.iframe(SATIS_FORM_URL,
+        st.components.v1.iframe(SATIS_FORM_URL, height=550, scrolling=True)
