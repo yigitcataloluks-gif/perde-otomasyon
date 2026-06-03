@@ -25,19 +25,17 @@ st.markdown("""
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
 
-# Google Formların Canlı Linkleri (Uygulamanın içine gömmek için)
+# Kanka iki formunun linkini de senin yerine buldum, buraya hazır yerleştirdim:
 FORM_URUN_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true"
+SATIS_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true"
 
 # Okunacak Sayfaların CSV Linkleri
-# Kanka formlardan gelen ham verileri "Form Yanıtları 1" ve satış formunun sayfasından çekeceğiz.
 STOK_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=stok"
 SATIS_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=satis"
-CARI_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=cariler"
 VERESIYE_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=veresiye"
 
 # Formların kendi orijinal sayfalarından veriyi garantiye almak için yedek okuma linkleri:
 FORM_YANIT_1_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=Form Yanıtları 1"
-# Kanka eğer satış formunun Excel'deki sayfa adı farklıysa buradaki "Form Yanıtları 2" kısmını o sayfa adı yapabilirsin:
 FORM_SATIS_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=Form Yanıtları 2"
 
 def veri_yukle(url):
@@ -60,17 +58,12 @@ if not st.session_state["login"]:
         else: st.error("Hatalı şifre!")
     st.stop()
 
-# --- VERİLERİ ÇEK ---
+# --- VERI YÜKLEME ---
 stok_df = veri_yukle(STOK_CSV_URL)
-# 1. SEKME: SATIŞ FORMU (GÖMÜLÜ)
-with sekme1:
-    st.header("🛒 Satış & Sipariş Kayıt Ekranı")
-    st.write("Abicim, satışı ve siparişi kaydetmek için aşağıdaki formu doldurup 'Gönder' demen yeterlidir. Veriler anında hafızaya işlenir.")
-    
-    # ⚠️ KANKA BURADAKİ TIRNAKLARIN İÇİNE FORM LİNKİNİ YAPIŞTIR:
-    SATIS_FORM_URL = "BURAYA_SATIS_FORMUNUN_LINKINI_YAZ"
-    
-    if SATIS_FORM_URL == "BURAYA_SATIS_FORMUNUN_LINKINI_YAZ":
-        st.warning("Kanka satış formunun linkini yapıştırmayı unutma!")
-    else:
-        st.components.v1.iframe(SATIS_FORM_URL, height=550, scrolling=True)
+satis_df = veri_yukle(SATIS_CSV_URL)
+veresiye_df = veri_yukle(VERESIYE_CSV_URL)
+form_urun_df = veri_yukle(FORM_YANIT_1_URL)
+form_satis_df = veri_yukle(FORM_SATIS_URL)
+
+# Veri kontrolü ve temizliği (Boşsa hata vermesin diye)
+if satis_df.empty and not form_satis_
