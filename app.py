@@ -25,7 +25,7 @@ st.markdown("""
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
 
-# Kanka iki formunun linkini de senin yerine buldum, buraya hazır yerleştirdim:
+# Formların linkleri hazır gömülü kanka:
 FORM_URUN_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true"
 SATIS_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true"
 
@@ -34,7 +34,7 @@ STOK_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out
 SATIS_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=satis"
 VERESIYE_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=veresiye"
 
-# Formların kendi orijinal sayfalarından veriyi garantiye almak için yedek okuma linkleri:
+# Formların yedek okuma linkleri:
 FORM_YANIT_1_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=Form Yanıtları 1"
 FORM_SATIS_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=Form Yanıtları 2"
 
@@ -63,7 +63,4 @@ stok_df = veri_yukle(STOK_CSV_URL)
 satis_df = veri_yukle(SATIS_CSV_URL)
 veresiye_df = veri_yukle(VERESIYE_CSV_URL)
 form_urun_df = veri_yukle(FORM_YANIT_1_URL)
-form_satis_df = veri_yukle(FORM_SATIS_URL)
-
-# Veri kontrolü ve temizliği (Boşsa hata vermesin diye)
-if satis_df.empty and not form_satis_
+form_satis_df = veri_yukle(FORM_SATIS_
