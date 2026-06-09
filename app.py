@@ -5,7 +5,7 @@ from io import StringIO
 import urllib.parse
 
 # --- SADE VE GÖZ YORMAYAN KOYU TEMA ---
-st.set_page_config(page_title="Perde Otomasyon Sistemi", page_icon="🧵", layout="wide")
+st.set_page_config(page_title="Dükkan Satış & Stok Otomasyonu", page_icon="🧵", layout="wide")
 
 st.markdown("""
     <style>
@@ -85,7 +85,7 @@ with sekme1:
     with col_m1:
         musteri_adi = st.text_input("👤 Müşteri / Dükkan Adı Soyadı:")
     with col_m2:
-        musteri_telefon = st.text_input("📱 Müşteri Telefon Numarası (Örn: 905xxxxxxxxx):")
+        musteri_telefon = st.text_input("📱 Müşteri Telefon Numarası (Örn: 905xxxxxxxxx):", help="Numarayı başında 90 olacak şekilde birleşik yazın kanka.")
 
     st.write("---")
 
@@ -114,7 +114,6 @@ with sekme1:
             
             st.info(f"💰 Seçilen Ürünün Metre Fiyatı: {birim_fiyat} TL")
             
-            # KANKA DÜZELTME BURADA: 'fidecek_kumas' hatası 'gidecek_kumas' olarak düzeltildi!
             miktar = st.number_input("📏 Satış Miktarı (Metre):", min_value=0.1, value=float(gidecek_kumas) if gidecek_kumas > 0 else 1.0)
             urun_notu = st.text_input("📝 Terzi / Dikim Notu:", value=f"{pile_turu} dikilecek.")
             
@@ -125,7 +124,7 @@ with sekme1:
                     "urun": secilen_urun,
                     "miktar": miktar,
                     "fiyat": birim_fiyat,
-                    "toplam": toplam_urun_fiyati,
+                    "toplam": total_urun_fiyati if 'total_urun_fiyati' in locals() else toplam_urun_fiyati,
                     "not": urun_notu
                 })
                 st.success(f"'{secilen_urun}' sepete eklendi!")
@@ -163,7 +162,7 @@ with sekme1:
                         else:
                             st.session_state["son_satis_bilgileri"] = {
                                 "musteri": musteri_adi,
-                                "telefon": musteri_telefon if musteri_telefon else "Belirtilmedi",
+                                "telefon": musteri_telefon if musteri_telefon else "",
                                 "sepet": st.session_state["sepet"].copy(),
                                 "toplam": toplam_sepet_tutari,
                                 "alinan": alinan_para,
@@ -193,17 +192,19 @@ with sekme1:
                         st.session_state["fatura_hazir"] = False
                         st.rerun()
 
-    # --- FATURA GÖSTERİMİ VE WHATSAPP GÖNDERME ALANI ---
+    # --- FATURA GÖSTERİMİ VEE DİREKT NUMARAYA WHATSAPP ALANI ---
     if st.session_state["fatura_hazir"]:
         st.write("---")
-        st.subheader("🧾 Müşteri Satış Faturası (Uygulamaya Kaydedildi)")
+        st.subheader("🧾 Müşteri Satış Faturası")
         info = st.session_state["son_satis_bilgileri"]
         
+        # KANKA GÜNCELLEME: "Perde Otomasyon Sistemi" ibaresi tamamen kaldırıldı!
         fatura_metni = f"========================================\n"
-        fatura_metni += f"         PERDE OTOMASYON SİSTEMİ        \n"
+        fatura_metni += f"             SATIŞ FİŞİ / ÖZET          \n"
         fatura_metni += f" Tarih: {info['tarih']}\n"
         fatura_metni += f" Müşteri: {info['musteri']}\n"
-        fatura_metni += f" Tel: {info['telefon']}\n"
+        if info['telefon']:
+            fatura_metni += f" Tel: {info['telefon']}\n"
         fatura_metni += f"----------------------------------------\n"
         
         whatsapp_urunler = ""
@@ -231,9 +232,15 @@ with sekme1:
         wp_mesaj += f"Bizi tercih ettiğiniz için teşekkür ederiz!"
         
         encoded_wp = urllib.parse.quote(wp_mesaj)
-        wp_link = f"https://api.whatsapp.com/send?phone={info['telefon']}&text={encoded_wp}"
         
-        st.markdown(f'<a href="{wp_link}" target="_blank"><button style="background-color: #25d366; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%;">💬 Faturayı WhatsApp Mesajı Olarak Aç</button></a>', unsafe_allow_html=True)
+        # KANKA GÜNCELLEME: Doğrudan numaraya yönlendiren yeni nesil akıllı WhatsApp linki!
+        clean_phone = info['telefon'].replace("+", "").strip()
+        if clean_phone and clean_phone != "Belirtilmedi":
+            wp_link = f"https://web.whatsapp.com/send?phone={clean_phone}&text={encoded_wp}"
+        else:
+            wp_link = f"https://web.whatsapp.com/send?text={encoded_wp}"
+        
+        st.markdown(f'<a href="{wp_link}" target="_blank"><button style="background-color: #25d366; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%;">💬 Faturayı Direkt Bu Numaraya Gönder (WhatsApp Web)</button></a>', unsafe_allow_html=True)
 
 # 2. SEKME: ÜRÜN EKLEME FORMU
 with sekme2:
