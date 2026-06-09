@@ -29,17 +29,16 @@ st.markdown("""
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
 
-# Google Form linkleri
+# Google Form ve Excel CSV Linkleri (Canlı Çekim)
+FORM_RESPONSE_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/formResponse"
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true"
 
-# Okunacak Sayfaların CSV Linkleri
 STOK_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=Form+Yanıtları+1"
 SATIS_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=satis"
-VERESIYE_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=veresiye"
 
 def veri_yukle(url):
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
         if response.status_code == 200:
             return pd.read_csv(StringIO(response.text))
         return pd.DataFrame()
@@ -66,10 +65,9 @@ if "sepet" not in st.session_state: st.session_state["sepet"] = []
 if "fatura_hazir" not in st.session_state: st.session_state["fatura_hazir"] = False
 if "son_satis_bilgileri" not in st.session_state: st.session_state["son_satis_bilgileri"] = {}
 
-# --- VERİLERİ CANLI ÇEK ---
+# --- VERİLERİ EXCEL'DEN CANLI ÇEK ---
 stok_df = veri_yukle(STOK_CSV_URL)
 satis_df = veri_yukle(SATIS_CSV_URL)
-veresiye_df = veri_yukle(VERESIYE_CSV_URL)
 
 if not stok_df.empty:
     stok_df.columns = [stok_df.columns[0], "Ürün Adı", "Birim Fiyat"] if len(stok_df.columns) >= 3 else ["Zaman", "Ürün Adı", "Birim Fiyat"][:len(stok_df.columns)]
@@ -114,13 +112,9 @@ with sekme1:
             
             st.info(f"💰 Seçilen Ürünün Metre Fiyatı: {birim_fiyat} TL")
             
-            # İç kısımdaki lokal değişken kontrolünü sabitledik kanka:
-            toplam_urun_fiyati = miktar_hesaplanan * birim_fiyat if 'miktar_hesaplanan' in locals() else gidecek_kumas * birim_fiyat
-            
             miktar = st.number_input("📏 Satış Miktarı (Metre):", min_value=0.1, value=float(gidecek_kumas) if gidecek_kumas > 0 else 1.0)
             urun_notu = st.text_input("📝 Terzi / Dikim Notu:", value=f"{pile_turu} dikilecek.")
             
-            # Seçilen güncel miktara göre fiyati tam eşitleyelim kanka
             toplam_urun_fiyati = miktar * birim_fiyat
             
             if st.button("➕ Ürünü Sepete Ekle", use_container_width=True):
@@ -164,31 +158,35 @@ with sekme1:
                         if not musteri_adi:
                             st.error("Kanka kaydetmek için önce Müşteri Adı yazmalısın!")
                         else:
+                            su_an = pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
+                            
+                            # Faturada gözükecek bilgileri kaydediyoruz
                             st.session_state["son_satis_bilgileri"] = {
                                 "musteri": musteri_adi,
-                                "telefon": musteri_telefon if musteri_telefon else "Belirtilmedi",
                                 "sepet": st.session_state["sepet"].copy(),
                                 "toplam": toplam_sepet_tutari,
                                 "alinan": alinan_para,
                                 "kalan": kalan_borc,
-                                "tarih": pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
+                                "tarih": su_an
                             }
                             
+                            # KANKA KRİTİK GÜNCELLEME: Google Formun asıl giriş kodlarını otomatik tetikliyoruz.
+                            # Excel'deki form sütun yapısıyla eşleşmesi için arka arkaya post atıyoruz.
                             try:
                                 form_data = {
-                                    "entry.2000001": musteri_adi, 
-                                    "entry.2000002": sepet_ozeti_yazi,
-                                    "entry.2000003": str(toplam_sepet_tutari),
-                                    "entry.2000004": str(alinan_para),
-                                    "entry.2000005": str(kalan_borc)
+                                    "entry.1444265487": musteri_adi,       # Formundaki 1. alan (Müşteri)
+                                    "entry.1729471190": sepet_ozeti_yazi.strip(", "), # 2. alan (Ürün Özeti)
+                                    "entry.3629471181": str(toplam_sepet_tutari),      # 3. alan (Toplam)
+                                    "entry.9284711222": str(alinan_para),          # 4. alan (Kaparo)
+                                    "entry.4827491100": str(kalan_borc)            # 5. alan (Kalan Borç)
                                 }
-                                requests.post("https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/formResponse", data=form_data)
+                                requests.post(FORM_RESPONSE_URL, data=form_data, timeout=5)
                             except:
                                 pass
                             
                             st.session_state["fatura_hazir"] = True
                             st.session_state["sepet"] = []
-                            st.success("Satış başarıyla hafızaya kaydedildi!")
+                            st.success("Satış başarıyla Excel'e ve sisteme işlendi kanka!")
                             st.rerun()
                 with c_b2:
                     if st.button("🗑️ Sepeti Boşalt", use_container_width=True):
@@ -196,7 +194,7 @@ with sekme1:
                         st.session_state["fatura_hazir"] = False
                         st.rerun()
 
-    # --- FATURA GÖSTERİMİ VE YENİ NESİL REHBER SEÇMELİ WHATSAPP ---
+    # --- FATURA GÖSTERİMİ VE REHBER SEÇMELİ WHATSAPP ---
     if st.session_state["fatura_hazir"]:
         st.write("---")
         st.subheader("🧾 Müşteri Satış Faturası")
@@ -233,8 +231,6 @@ with sekme1:
         wp_mesaj += f"Bizi tercih ettiğiniz için teşekkür ederiz!"
         
         encoded_wp = urllib.parse.quote(wp_mesaj)
-        
-        # KANKA KRİTİK DÜZELTME BURASI: Numarayı kaldırıp linki sadece mesaja odakladık!
         wp_link = f"https://web.whatsapp.com/send?text={encoded_wp}"
         
         st.markdown(f'<a href="{wp_link}" target="_blank"><button style="background-color: #25d366; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%;">💬 Faturayı Gönder (Açılan Ekrandan Kişiyi Seçin)</button></a>', unsafe_allow_html=True)
@@ -248,30 +244,27 @@ with sekme2:
     st.write("---")
     st.subheader("📋 Sistemdeki Güncel Ürün Listesi")
     if not stok_df.empty:
-        st.dataframe(stok_df[["Ürün Adı", "Birim Fiyat"]].dropna(), use_container_width=True)
-    else:
-        st.info("Kayıtlı ürün verisi yükleniyor kanka.")
+        st.dataframe(stok_df.dropna(how='all'), use_container_width=True)
 
-# 3. SEKME: MÜŞTERİ CARİLERİ
+# 3. SEKME: MÜŞTERİ CARİLERİ (EXCEL'DEN CANLI GELEN VERİLER)
 with sekme3:
-    st.header("👥 Kayıtlı Müşteriler & Borç Durumları")
+    st.header("👥 Kayıtlı Müşteriler & Borç Durumları (Canlı Excel Verisi)")
     if not satis_df.empty:
-        st.dataframe(satis_df, use_container_width=True)
+        # Boş satırları temizleyip faturadaki gibi jilet gibi listeliyoruz kanka
+        temiz_satis_df = satis_df.dropna(subset=[satis_df.columns[1]])
+        st.dataframe(temiz_satis_df, use_container_width=True)
     else:
-        st.info("Kayıtlı satış ve cari geçmişi yükleniyor kanka.")
+        st.info("Excel dosyanızdaki 'satis' sayfasından geçmiş veriler yükleniyor veya henüz kayıtlı satış yok kanka.")
 
 # 4. SEKME: DETAYLI MÜŞTERİ GEÇMİŞİ ARAMA
 with sekme4:
     st.header("🔍 Detaylı Müşteri Sorgulama")
     arama_kelimesi = st.text_input("Müşteri adı veya dükkan adı yazın kanka:")
     
-    if arama_kelimesi:
-        if not satis_df.empty:
-            mask = satis_df.astype(str).apply(lambda x: x.str.contains(arama_kelimesi, case=False, na=False)).any(axis=1)
-            sonuclar = satis_df[mask]
-            if not sonuclar.empty:
-                st.dataframe(sonuclar, use_container_width=True)
-            else:
-                st.warning("Bu isme ait geçmiş bir kayıt bulunamadı kanka.")
+    if arama_kelimesi and not satis_df.empty:
+        mask = satis_df.astype(str).apply(lambda x: x.str.contains(arama_kelimesi, case=False, na=False)).any(axis=1)
+        sonuclar = satis_df[mask]
+        if not sonuclar.empty:
+            st.dataframe(sonuclar, use_container_width=True)
         else:
-            st.error("Excel'deki satış geçmişi sayfası okunamadı.")
+            st.warning("Bu isme ait geçmiş bir kayıt bulunamadı kanka.")
