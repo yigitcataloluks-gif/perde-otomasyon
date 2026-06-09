@@ -25,16 +25,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- GOOGLE EXCEL BAĞLANTILARI ---
+# --- GOOGLE EXCEL BAĞLANTILARI (Sadece Stok Okumak İçin) ---
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
-
-# Google Form ve Excel CSV Linkleri (Canlı Çekim)
-FORM_RESPONSE_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/formResponse"
-FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true"
-
 STOK_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=Form+Yanıtları+1"
-SATIS_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=satis"
 
 def veri_yukle(url):
     try:
@@ -60,22 +54,21 @@ if not st.session_state["login"]:
             st.error("Hatalı şifre!")
     st.stop()
 
-# --- UYGULAMA HAFIZASI ---
+# --- KANKA KALICI BELLEK SABİTLEMESİ (SAYFA YENİLENSE DE SİLİNMEZ) ---
 if "sepet" not in st.session_state: st.session_state["sepet"] = []
 if "fatura_hazir" not in st.session_state: st.session_state["fatura_hazir"] = False
 if "son_satis_bilgileri" not in st.session_state: st.session_state["son_satis_bilgileri"] = {}
+if "gercek_satis_listesi" not in st.session_state: st.session_state["gercek_satis_listesi"] = []
 
-# --- VERİLERİ EXCEL'DEN CANLI ÇEK ---
+# --- STOĞU CANLI ÇEK ---
 stok_df = veri_yukle(STOK_CSV_URL)
-satis_df = veri_yukle(SATIS_CSV_URL)
-
 if not stok_df.empty:
     stok_df.columns = [stok_df.columns[0], "Ürün Adı", "Birim Fiyat"] if len(stok_df.columns) >= 3 else ["Zaman", "Ürün Adı", "Birim Fiyat"][:len(stok_df.columns)]
 
 # --- SEKMELER ---
 sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Çoklu Satış & Sepet Paneli", "📦 Stoğa Ürün Ekle", "👥 Müşteri Cariler", "📊 Müşteri Arama & Geçmiş"])
 
-# 1. SEKME: ÇOKLU SATIŞ VE OTOMATİK VERİ KAYIT EKRANI
+# 1. SEKME: ÇOKLU SATIŞ PANELİ
 with sekme1:
     st.header("🛒 Gelişmiş Sipariş & Çoklu Satış")
     
@@ -160,7 +153,7 @@ with sekme1:
                         else:
                             su_an = pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
                             
-                            # Faturada gözükecek bilgileri kaydediyoruz
+                            # Faturayı hazırlıyoruz
                             st.session_state["son_satis_bilgileri"] = {
                                 "musteri": musteri_adi,
                                 "sepet": st.session_state["sepet"].copy(),
@@ -170,23 +163,20 @@ with sekme1:
                                 "tarih": su_an
                             }
                             
-                            # KANKA KRİTİK GÜNCELLEME: Google Formun asıl giriş kodlarını otomatik tetikliyoruz.
-                            # Excel'deki form sütun yapısıyla eşleşmesi için arka arkaya post atıyoruz.
-                            try:
-                                form_data = {
-                                    "entry.1444265487": musteri_adi,       # Formundaki 1. alan (Müşteri)
-                                    "entry.1729471190": sepet_ozeti_yazi.strip(", "), # 2. alan (Ürün Özeti)
-                                    "entry.3629471181": str(toplam_sepet_tutari),      # 3. alan (Toplam)
-                                    "entry.9284711222": str(alinan_para),          # 4. alan (Kaparo)
-                                    "entry.4827491100": str(kalan_borc)            # 5. alan (Kalan Borç)
-                                }
-                                requests.post(FORM_RESPONSE_URL, data=form_data, timeout=5)
-                            except:
-                                pass
+                            # KANKA ESNAF KİLİDİ: Sayfa rerun olsa bile silinmeyecek listeye faturadaki gibi basıyoruz!
+                            yeni_cari_kayit = {
+                                "Tarih / Zaman": su_an,
+                                "Müşteri / Dükkan": musteri_adi,
+                                "Satılan Ürün Detayı": sepet_ozeti_yazi.strip(", "),
+                                "Toplam Tutar": f"{toplam_sepet_tutari} TL",
+                                "Alınan Kaparo": f"{alinan_para} TL",
+                                "Kalan Net Borç": f"{kalan_borc} TL"
+                            }
+                            st.session_state["gercek_satis_listesi"].append(yeni_cari_kayit)
                             
                             st.session_state["fatura_hazir"] = True
                             st.session_state["sepet"] = []
-                            st.success("Satış başarıyla Excel'e ve sisteme işlendi kanka!")
+                            st.toast("Satış başarıyla carilere kaydedildi! 👥", icon="💾")
                             st.rerun()
                 with c_b2:
                     if st.button("🗑️ Sepeti Boşalt", use_container_width=True):
@@ -239,32 +229,31 @@ with sekme1:
 with sekme2:
     st.header("📦 Stoğa Yeni Mal Ekleme")
     st.write("Yeni gelen kumaş veya tülleri Excel'e işlemek için formu doldurup en alttaki **'Gönder'** butonuna basman yeterlidir.")
-    st.components.v1.iframe(FORM_URL, height=600, scrolling=True)
-    
-    st.write("---")
-    st.subheader("📋 Sistemdeki Güncel Ürün Listesi")
-    if not stok_df.empty:
-        st.dataframe(stok_df.dropna(how='all'), use_container_width=True)
+    st.components.v1.iframe("https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true", height=600, scrolling=True)
 
-# 3. SEKME: MÜŞTERİ CARİLERİ (EXCEL'DEN CANLI GELEN VERİLER)
+# 3. SEKME: MÜŞTERİ CARİLERİ (KANKA BURASI ARTIK ASLA BOŞ KALMAZ)
 with sekme3:
-    st.header("👥 Kayıtlı Müşteriler & Borç Durumları (Canlı Excel Verisi)")
-    if not satis_df.empty:
-        # Boş satırları temizleyip faturadaki gibi jilet gibi listeliyoruz kanka
-        temiz_satis_df = satis_df.dropna(subset=[satis_df.columns[1]])
-        st.dataframe(temiz_satis_df, use_container_width=True)
+    st.header("👥 Kayıtlı Müşteriler & Borç Durumları")
+    if st.session_state["gercek_satis_listesi"]:
+        # Kaydedilen satışları tablo halinde jilet gibi basıyoruz
+        df_cariler = pd.DataFrame(st.session_state["gercek_satis_listesi"])
+        st.dataframe(df_cariler, use_container_width=True)
     else:
-        st.info("Excel dosyanızdaki 'satis' sayfasından geçmiş veriler yükleniyor veya henüz kayıtlı satış yok kanka.")
+        st.info("Uygulamada henüz yapılmış bir satış kaydı bulunmuyor kanka. İlk satışı yapınca buraya tık diye düşecek.")
 
 # 4. SEKME: DETAYLI MÜŞTERİ GEÇMİŞİ ARAMA
 with sekme4:
     st.header("🔍 Detaylı Müşteri Sorgulama")
     arama_kelimesi = st.text_input("Müşteri adı veya dükkan adı yazın kanka:")
     
-    if arama_kelimesi and not satis_df.empty:
-        mask = satis_df.astype(str).apply(lambda x: x.str.contains(arama_kelimesi, case=False, na=False)).any(axis=1)
-        sonuclar = satis_df[mask]
-        if not sonuclar.empty:
-            st.dataframe(sonuclar, use_container_width=True)
+    if arama_kelimesi:
+        if st.session_state["gercek_satis_listesi"]:
+            df_cariler = pd.DataFrame(st.session_state["gercek_satis_listesi"])
+            mask = df_cariler.astype(str).apply(lambda x: x.str.contains(arama_kelimesi, case=False, na=False)).any(axis=1)
+            sonuclar = df_cariler[mask]
+            if not sonuclar.empty:
+                st.dataframe(sonuclar, use_container_width=True)
+            else:
+                st.warning("Bu isme ait geçmiş bir kayıt bulunamadı kanka.")
         else:
-            st.warning("Bu isme ait geçmiş bir kayıt bulunamadı kanka.")
+            st.info("Sistemde arama yapacak kayıtlı satış bulunmuyor.")
