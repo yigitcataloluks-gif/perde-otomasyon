@@ -66,7 +66,7 @@ veresiye_df = veri_yukle(VERESIYE_CSV_URL)
 # --- SEKMELER BAŞLIYOR ---
 sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Satış & Sipariş Kaydı", "📦 Stoğa Ürün Ekle", "👥 Müşteri Cariler", "📊 Müşteri Arama & Geçmiş"])
 
-# 1. SEKME: SATIŞ FORMU GÖMME (HATALI TIRNAK BURADA TAMAMEN DÜZELTİLDİ!)
+# 1. SEKME: SATIŞ FORMU GÖMME
 with sekme1:
     st.header("🛒 Satış & Sipariş Kayıt Ekranı")
     st.write("Abicim, satışı ve siparişi Excel'e kaydetmek için aşağıdaki formu doldurup en alttaki Gönder butonuna basman yeterlidir.")
@@ -98,9 +98,18 @@ with sekme3:
     else:
         st.info("Kayıtlı cari bulunamadı veya veriler henüz işlenmedi kanka.")
 
-# 4. SEKME: DETAYLI MÜŞTERİ GEÇMİŞİ ARAMA
+# 4. SEKME: DETAYLI MÜŞTERİ GEÇMİŞİ ARAMA (BOŞLUK HATASI BURADA TAMAMEN DÜZELTİLDİ)
 with sekme4:
     st.header("🔍 Detaylı Müşteri Sorgulama")
     arama_kelimesi = st.text_input("Müşteri adı veya dükkan adı yazın:")
     
     if arama_kelimesi:
+        if not satis_df.empty:
+            mask = satis_df.astype(str).apply(lambda x: x.str.contains(arama_kelimesi, case=False, na=False)).any(axis=1)
+            sonuclar = satis_df[mask]
+            if not sonuclar.empty:
+                st.dataframe(sonuclar, use_container_width=True)
+            else:
+                st.warning("Bu isme ait geçmiş bir kayıt bulunamadı kanka.")
+        else:
+            st.error("Excel'deki satış geçmişi sayfası okunamadı kanka.")
