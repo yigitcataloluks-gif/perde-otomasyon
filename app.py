@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import StringIO
+import urllib.parse
 
 # --- SADE VE GÖZ YORMAYAN KOYU TEMA ---
-st.set_page_config(page_title="Perde Otomasyon Sistemi", page_icon="🧵", layout="centered")
+st.set_page_config(page_title="Perde Otomasyon Sistemi", page_icon="🧵", layout="wide")
 
 st.markdown("""
     <style>
@@ -17,6 +18,15 @@ st.markdown("""
     div[data-testid="stMetricValue"] { color: #10b981 !important; }
     .stTabs [data-baseweb="tab"] { color: #a1a1aa !important; }
     .stTabs [aria-selected="true"] { color: #3b82f6 !important; font-weight: bold !important; }
+    .fatura-kutusu { 
+        background-color: #ffffff; color: #000000; padding: 25px; 
+        border-radius: 8px; font-family: 'Courier New', Courier, monospace;
+        border: 2px dashed #000000; margin-top: 15px;
+    }
+    .sepet-kart {
+        background-color: #27272a; padding: 12px; 
+        border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #2563eb;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -24,7 +34,7 @@ st.markdown("""
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
 
-# Google Formunun orijinal gömme linki
+# Google Formunun orijinal gömme linki (Ürün eklemek için buna dokunmuyoruz kanka)
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true"
 
 # Okunacak Sayfaların CSV Linkleri
@@ -36,10 +46,8 @@ def veri_yukle(url):
     try:
         response = requests.get(url)
         if response.status_code == 200:
-            df = pd.read_csv(StringIO(response.text))
-            return df
-        else:
-            return pd.DataFrame()
+            return pd.read_csv(StringIO(response.text))
+        return pd.DataFrame()
     except:
         return pd.DataFrame()
 
@@ -58,58 +66,40 @@ if not st.session_state["login"]:
             st.error("Hatalı şifre!")
     st.stop()
 
-# --- VERİLERİ ÇEK ---
+# --- UYGULAMA HAFIZASI (SEPETİMİZ) ---
+if "sepet" not in st.session_state:
+    st.session_state["sepet"] = []
+if "fatura_hazir" not in st.session_state:
+    st.session_state["fatura_hazir"] = False
+if "son_satis_bilgileri" not in st.session_state:
+    st.session_state["son_satis_bilgileri"] = {}
+
+# --- VERİLERİ CANLI ÇEK ---
 stok_df = veri_yukle(STOK_CSV_URL)
 satis_df = veri_yukle(SATIS_CSV_URL)
 veresiye_df = veri_yukle(VERESIYE_CSV_URL)
 
-# --- SEKMELER BAŞLIYOR ---
-sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Satış & Sipariş Kaydı", "📦 Stoğa Ürün Ekle", "👥 Müşteri Cariler", "📊 Müşteri Arama & Geçmiş"])
+# --- SEKMELER ---
+sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Çoklu Satış & Sepet Paneli", "📦 Stoğa Ürün Ekle", "👥 Müşteri Cariler", "📊 Müşteri Arama & Geçmiş"])
 
-# 1. SEKME: SATIŞ FORMU GÖMME
+# 1. SEKME: GELİŞMİŞ ÇOKLU SATIŞ VE WHATSAPP FATURA EKRANI
 with sekme1:
-    st.header("🛒 Satış & Sipariş Kayıt Ekranı")
-    st.write("Abicim, satışı ve siparişi Excel'e kaydetmek için aşağıdaki formu doldurup en alttaki Gönder butonuna basman yeterlidir.")
-    st.components.v1.iframe(FORM_URL, height=600, scrolling=True)
-
-# 2. SEKME: ÜRÜN EKLEME FORMU GÖMME
-with sekme2:
-    st.header("📦 Stoğa Yeni Mal Ekleme")
-    st.write("Yeni gelen kumaş veya tülleri Excel'e işlemek için formu doldurup Gönder deyin.")
-    st.components.v1.iframe(FORM_URL, height=600, scrolling=True)
+    st.header("🛒 Gelişmiş Sipariş & Çoklu Satış")
     
+    # Müşteri Bilgileri Üst Kısım
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        musteri_adi = st.text_input("👤 Müşteri / Dükkan Adı Soyadı:")
+    with col_m2:
+        musteri_telefon = st.text_input("📱 Müşteri Telefon Numarası (Örn: 905xxxxxxxxx):", help="Başında kodla birleşik yazın.")
+
     st.write("---")
-    st.subheader("📋 Güncel Stok Listesi")
-    if not stok_df.empty:
-        st.dataframe(stok_df, use_container_width=True)
-    else:
-        st.info("Kayıtlı stok verisi yükleniyor, yeni eklediyseniz sayfayı yenileyin kanka.")
 
-# 3. SEKME: MÜŞTERİ CARİLERİ
-with sekme3:
-    st.header("👥 Kayıtlı Müşteriler & Borç Durumları")
-    if not veresiye_df.empty:
-        st.dataframe(veresiye_df, use_container_width=True)
-    elif not satis_df.empty:
-        try:
-            st.dataframe(satis_df.groupby("Müşteri / Dükkan").sum(numeric_only=True), use_container_width=True)
-        except:
-            st.dataframe(satis_df, use_container_width=True)
+    # Ürün ekleme kısmından gelen verileri buraya canlı çekiyoruz kanka:
+    if stok_df.empty or "Ürün Adı" not in stok_df.columns:
+        st.warning("⚠️ Stokta hiç ürün bulunamadı kanka. Lütfen yan sekmeden önce ürün ekleyin!")
     else:
-        st.info("Kayıtlı cari bulunamadı veya veriler henüz işlenmedi kanka.")
-
-# 4. SEKME: DETAYLI MÜŞTERİ GEÇMİŞİ ARAMA (BOŞLUK HATASI BURADA TAMAMEN DÜZELTİLDİ)
-with sekme4:
-    st.header("🔍 Detaylı Müşteri Sorgulama")
-    arama_kelimesi = st.text_input("Müşteri adı veya dükkan adı yazın:")
-    
-    if arama_kelimesi:
-        if not satis_df.empty:
-            mask = satis_df.astype(str).apply(lambda x: x.str.contains(arama_kelimesi, case=False, na=False)).any(axis=1)
-            sonuclar = satis_df[mask]
-            if not sonuclar.empty:
-                st.dataframe(sonuclar, use_container_width=True)
-            else:
-                st.warning("Bu isme ait geçmiş bir kayıt bulunamadı kanka.")
-        else:
-            st.error("Excel'deki satış geçmişi sayfası okunamadı kanka.")
+        # Sol Taraf: Ürün Seçme ve Sepete Ekleme | Sağ Taraf: Aktif Sepet Görünümü
+        col_sol, col_sag = st.columns([1.2, 1])
+        
+        with col_
