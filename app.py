@@ -3,76 +3,53 @@ import pandas as pd
 import requests
 from io import StringIO
 import urllib.parse
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Dükkan Otomasyonu", layout="wide")
+st.set_page_config(page_title="Dükkan Satış & Stok Otomasyonu", page_icon="🧵", layout="wide")
 
-# --- GOOGLE BAĞLANTISI (Hatasız Yöntem) ---
-SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
-DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
+st.markdown("""
+    <style>
+    .stApp { background-color: #1a1a1e; color: #f4f4f5; }
+    h1, h2, h3, h4 { color: #e4e4e7 !important; }
+    .stButton>button { background-color: #2563eb !important; color: white !important; }
+    .sepet-kart { background-color: #27272a; padding: 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #2563eb; }
+    </style>
+""", unsafe_allow_html=True)
 
-def excel_baglan():
-    try:
-        # Hata veren JSON dönüşümlerini kaldırdık, doğrudan dict yapısını kullanıyoruz
-        creds_dict = dict(st.secrets["GOOGLE_CREDENTIALS"])
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-        client = gspread.authorize(creds)
-        return client.open_by_key(DOC_ID).worksheet("satis")
-    except Exception as e:
-        st.error(f"Bağlantı Hatası: {e}")
-        return None
-
-# --- GİRİŞ VE ANA YAPI ---
+# --- ŞİFRE KORUMASI ---
 if "login" not in st.session_state: st.session_state["login"] = False
 if not st.session_state["login"]:
+    st.subheader("🔑 Dükkan Girişi")
     sifre = st.text_input("Giriş Şifresi:", type="password")
-    if st.button("Giriş Yap") and sifre == "perde123":
-        st.session_state["login"] = True
-        st.rerun()
+    if st.button("Giriş Yap", use_container_width=True):
+        if sifre == "perde123":
+            st.session_state["login"] = True
+            st.rerun()
+        else: st.error("Hatalı şifre!")
     st.stop()
 
-# --- TÜM SEKMELER VE ÖZELLİKLER ---
-satis_sheet = excel_baglan()
+# --- GEÇİCİ BELLEK ---
 if "sepet" not in st.session_state: st.session_state["sepet"] = []
 
-tab1, tab2, tab3, tab4 = st.tabs(["🛒 Çoklu Satış", "📦 Ürün Ekle", "👥 Cariler", "🔍 Müşteri Arama"])
+# --- SEKMELER ---
+sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Çoklu Satış & Sepet Paneli", "📦 Stoğa Ürün Ekle", "👥 Müşteri Cariler", "📊 Müşteri Arama & Geçmiş"])
 
-with tab1:
-    st.header("🛒 Satış Paneli")
-    # Buraya o orijinal, uzun ve detaylı satış panelini, hesaplamaları ve faturayı geri ekliyoruz
-    c1, c2 = st.columns(2)
-    with c1:
-        musteri = st.text_input("Müşteri Adı")
-        urun = st.text_input("Ürün")
-        miktar = st.number_input("Miktar", min_value=0.1)
-        fiyat = st.number_input("Fiyat", min_value=0.0)
-        if st.button("Sepete Ekle"):
-            st.session_state["sepet"].append({"musteri": musteri, "urun": urun, "miktar": miktar, "toplam": miktar*fiyat})
-            st.rerun()
-    with c2:
-        if st.button("Satışı Kaydet"):
-            for item in st.session_state["sepet"]:
-                satis_sheet.append_row([pd.Timestamp.now().strftime("%d/%m/%Y"), item['urun'], item['miktar'], item['toplam'], item['musteri'], 0, 0, "Aktif", ""])
-            st.session_state["sepet"] = []
-            st.success("Satış tamamlandı!")
-            st.rerun()
+with sekme1:
+    st.header("🛒 Gelişmiş Sipariş & Çoklu Satış")
+    col_m1, col_m2 = st.columns(2)
+    with col_m1: musteri_adi = st.text_input("👤 Müşteri / Dükkan Adı Soyadı:")
+    with col_m2: musteri_telefon = st.text_input("📱 Müşteri Telefon Numarası:")
+    
+    st.info("Sepetiniz ve satışlarınız için şu an yerel bellek aktif.")
 
-with tab2:
-    st.header("📦 Ürün Ekleme")
-    st.components.v1.iframe("https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true", height=600)
+with sekme2:
+    st.header("📦 Stoğa Yeni Mal Ekleme")
+    st.components.v1.iframe(f"https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true", height=600, scrolling=True)
 
-with tab3:
-    st.header("👥 Cariler")
-    if satis_sheet:
-        df = pd.DataFrame(satis_sheet.get_all_records())
-        st.dataframe(df, use_container_width=True)
+with sekme3:
+    st.header("👥 Kayıtlı Müşteriler & Borç Durumları")
+    st.write("Cari bilgileriniz burada listelenecek.")
 
-with tab4:
-    st.header("🔍 Arama")
-    arama = st.text_input("Müşteri adı girin:")
-    if satis_sheet and arama:
-        df = pd.DataFrame(satis_sheet.get_all_records())
-        st.dataframe(df[df['Müşteri'].str.contains(arama, na=False)])
+with sekme4:
+    st.header("🔍 Detaylı Müşteri Sorgulama")
+    st.text_input("Müşteri adı veya dükkan adı yazın kanka:")
