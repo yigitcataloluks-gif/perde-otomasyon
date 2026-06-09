@@ -29,11 +29,11 @@ st.markdown("""
 SHEET_LINK = "https://docs.google.com/spreadsheets/d/1ePbMgh3JEflaJ5ZfDp8xQ_rrq0A4U9R-i1RVd3oHN5s/edit"
 DOC_ID = SHEET_LINK.split("/d/")[1].split("/")[0]
 
-# Google Formunun orijinal gömme linki (Ürün eklemek için buna dokunmuyoruz)
+# Google Formunun orijinal gömme linki (Ürün eklemek için kullandığımız form kanka)
 FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/viewform?embedded=true"
 
-# Okunacak Sayfaların CSV Linkleri
-STOK_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=stok"
+# KANKA DÜZELTME BURADA: Ürünleri doğrudan formun yazdığı sayfadan (Form Yanıtları 1) çekiyoruz!
+STOK_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=Form+Yanıtları+1"
 SATIS_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=satis"
 VERESIYE_CSV_URL = f"https://docs.google.com/spreadsheets/d/{DOC_ID}/gviz/tq?tqx=out:csv&sheet=veresiye"
 
@@ -74,6 +74,12 @@ stok_df = veri_yukle(STOK_CSV_URL)
 satis_df = veri_yukle(SATIS_CSV_URL)
 veresiye_df = veri_yukle(VERESIYE_CSV_URL)
 
+# Sütun isimlerini standartlaştıralım ki Excel'de ne yazarsa yazsın kod patlamasın kanka
+if not stok_df.empty:
+    # Formun ilk sütunu Zaman Damgası olur, 2. sütun Ürün Adı, 3. sütun Birim Fiyat olur genelde.
+    # Eğer Excel sütun isimleri farklıysa onları tanıyalım:
+    stok_df.columns = [stok_df.columns[0], "Ürün Adı", "Birim Fiyat"] if len(stok_df.columns) >= 3 else ["Zaman", "Ürün Adı", "Birim Fiyat"][:len(stok_df.columns)]
+
 # --- SEKMELER ---
 sekme1, sekme2, sekme3, sekme4 = st.tabs(["🛒 Çoklu Satış & Sepet Paneli", "📦 Stoğa Ürün Ekle", "👥 Müşteri Cariler", "📊 Müşteri Arama & Geçmiş"])
 
@@ -89,8 +95,9 @@ with sekme1:
 
     st.write("---")
 
+    # Kanka formdan gelen ürün listesi boş mu kontrolü
     if stok_df.empty or "Ürün Adı" not in stok_df.columns:
-        st.warning("⚠️ Stokta hiç ürün bulunamadı kanka. Lütfen yan sekmeden önce ürün ekleyin!")
+        st.warning("⚠️ Form yanıtları Excel'den henüz çekilemedi veya stokta hiç ürün yok kanka. Lütfen yan sekmeden önce bir ürün ekleyip 'Gönder' deyin, ardından bu sayfayı yenileyin!")
     else:
         col_sol, col_sag = st.columns([1.2, 1])
         
@@ -105,16 +112,19 @@ with sekme1:
             gidecek_kumas = cam_eni * carpan
             st.caption(f"🤖 Robot Hesaplaması: Gerekli Kumaş Miktarı **{gidecek_kumas} Metre**")
 
-            urun_listesi = stok_df["Ürün Adı"].tolist()
+            # Formdan eklediğimiz ürünler buraya akıyor kanka:
+            urun_listesi = stok_df["Ürün Adı"].dropna().unique().tolist()
             secilen_urun = st.selectbox("📦 Satılacak Kumaşı Seçin:", urun_listesi)
             
+            # Seçilen ürünün fiyatını buluyoruz
             urun_row = stok_df[stok_df["Ürün Adı"] == secilen_urun].iloc[0]
             try: birim_fiyat = float(urun_row['Birim Fiyat'])
             except: birim_fiyat = 0.0
             
             st.info(f"💰 Seçilen Ürünün Metre Fiyatı: {birim_fiyat} TL")
             
-            miktar = st.number_input("📏 Satış Miktarı (Metre):", min_value=0.1, value=float(gidecek_kumas))
+            # Varsayılan satış miktarını robotun hesapladığı miktar yapıyoruz kanka:
+            miktar = st.number_input("📏 Satış Miktarı (Metre):", min_value=0.1, value=float(gidecek_kumas) if gidecek_kumas > 0 else 1.0)
             urun_notu = st.text_input("📝 Terzi / Dikim Notu:", value=f"{pile_turu} dikilecek.")
             
             toplam_urun_fiyati = miktar * birim_fiyat
@@ -127,7 +137,7 @@ with sekme1:
                     "toplam": toplam_urun_fiyati,
                     "not": urun_notu
                 })
-                st.success(f"{secilen_urun} sepete eklendi!")
+                st.success(f"'{secilen_urun}' sepete eklendi!")
                 st.rerun()
 
         with col_sag:
@@ -168,7 +178,7 @@ with sekme1:
                                 "tarih": pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
                             }
                             st.session_state["fatura_hazir"] = True
-                            st.session_state["sepet"] = []
+                            st.session_state["sepet"] = [] # Sepeti sıfırla
                             st.rerun()
                 with c_b2:
                     if st.button("🗑️ Sepeti Boşalt", use_container_width=True):
@@ -218,7 +228,7 @@ with sekme1:
         
         st.markdown(f'<a href="{wp_link}" target="_blank"><button style="background-color: #25d366; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%;">💬 Faturayı WhatsApp ile Müşteriye Gönder</button></a>', unsafe_allow_html=True)
 
-# 2. SEKME: ÜRÜN EKLEME FORMU
+# 2. SEKME: ÜRÜN EKLEME FORMU (DOKUNMADIK)
 with sekme2:
     st.header("📦 Stoğa Yeni Mal Ekleme")
     st.write("Yeni gelen kumaş veya tülleri Excel'e işlemek için formu doldurup en alttaki **'Gönder'** butonuna basman yeterlidir.")
@@ -227,7 +237,7 @@ with sekme2:
     st.write("---")
     st.subheader("📋 Sistemdeki Güncel Ürün Listesi")
     if not stok_df.empty:
-        st.dataframe(stok_df, use_container_width=True)
+        st.dataframe(stok_df[["Ürün Adı", "Birim Fiyat"]].dropna(), use_container_width=True)
     else:
         st.info("Kayıtlı ürün verisi yükleniyor kanka.")
 
