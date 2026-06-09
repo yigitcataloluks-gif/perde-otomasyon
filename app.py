@@ -114,7 +114,8 @@ with sekme1:
             
             st.info(f"💰 Seçilen Ürünün Metre Fiyatı: {birim_fiyat} TL")
             
-            miktar = st.number_input("📏 Satış Miktarı (Metre):", min_value=0.1, value=float(gidecek_kumas) if fidecek_kumas > 0 else 1.0)
+            # KANKA DÜZELTME BURADA: 'fidecek_kumas' hatası 'gidecek_kumas' olarak düzeltildi!
+            miktar = st.number_input("📏 Satış Miktarı (Metre):", min_value=0.1, value=float(gidecek_kumas) if gidecek_kumas > 0 else 1.0)
             urun_notu = st.text_input("📝 Terzi / Dikim Notu:", value=f"{pile_turu} dikilecek.")
             
             toplam_urun_fiyati = miktar * birim_fiyat
@@ -160,7 +161,6 @@ with sekme1:
                         if not musteri_adi:
                             st.error("Kanka kaydetmek için önce Müşteri Adı yazmalısın!")
                         else:
-                            # SEPET DETAYLARINI HAFIZAYA ALIYORUZ
                             st.session_state["son_satis_bilgileri"] = {
                                 "musteri": musteri_adi,
                                 "telefon": musteri_telefon if musteri_telefon else "Belirtilmedi",
@@ -171,10 +171,7 @@ with sekme1:
                                 "tarih": pd.Timestamp.now().strftime("%d/%m/%Y %H:%M")
                             }
                             
-                            # KANKA EXCEL'E KALICI YAZMA SİHRİ BURASI:
-                            # Form yanıtları formunu tetikleyerek satışı dükkanın carisine gömüyoruz
                             try:
-                                # Sizin sistemdeki formunuza arka plandan görünmez veri gönderiyoruz kanka
                                 form_data = {
                                     "entry.2000001": musteri_adi, 
                                     "entry.2000002": sepet_ozeti_yazi,
@@ -184,10 +181,10 @@ with sekme1:
                                 }
                                 requests.post("https://docs.google.com/forms/d/e/1FAIpQLSd_culVxwiQH_wUY9TnPn53fnvuuZDqx9b64cLJU7A3mBYWVw/formResponse", data=form_data)
                             except:
-                                pass # Form uyuşmazlığı olsa bile uygulama içi faturayı kesmeye devam et kanka
+                                pass
                             
                             st.session_state["fatura_hazir"] = True
-                            st.session_state["sepet"] = [] # Sepeti boşalt
+                            st.session_state["sepet"] = []
                             st.success("Satış başarıyla hafızaya kaydedildi!")
                             st.rerun()
                 with c_b2:
@@ -251,7 +248,7 @@ with sekme2:
     else:
         st.info("Kayıtlı ürün verisi yükleniyor kanka.")
 
-# 3. SEKME: MÜŞTERİ CARİLERİ (BURASI ARTIK CANLI VERİ GÖSTERECEK!)
+# 3. SEKME: MÜŞTERİ CARİLERİ
 with sekme3:
     st.header("👥 Kayıtlı Müşteriler & Borç Durumları")
     if not satis_df.empty:
